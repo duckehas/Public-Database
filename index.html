@@ -1,0 +1,170 @@
+<!-- Updated Engine6.0 Vault (Public Files View Enabled) -->
+<!-- Explanation:
+     This version allows EVERY visitor to see all uploaded files.
+     Storage is still localStorage, meaning files are shared ONLY on the same device.
+     To truly share globally, you must use a database/API.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Engine6.0 Vault</title>
+<style>
+/* --- (All original CSS unchanged for readability) --- */
+body, html { margin:0; padding:0; overflow-x:hidden; font-family:Arial,sans-serif; background:#111; color:#fff; min-height:100vh; }
+canvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; filter: blur(2px); }
+#loadingScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(10px); transition:opacity 0.8s ease; }
+#loadingLogo { font-size:3rem; font-weight:bold; color:#00d4ff; margin-bottom:30px; text-shadow:0 0 15px #00f0ff, 0 0 30px #00aaff; animation:rotateLogo 3s linear infinite; }
+@keyframes rotateLogo { 0%{transform:rotateY(0deg) rotateX(0deg);} 50%{transform:rotateY(180deg) rotateX(180deg);} 100%{transform:rotateY(360deg) rotateX(360deg);} }
+.progress-container { width:70%; max-width:600px; height:25px; border-radius:15px; background:rgba(255,255,255,0.1); backdrop-filter:blur(15px); overflow:hidden; border:1px solid rgba(255,255,255,0.25); box-shadow:inset 0 1px 5px rgba(255,255,255,0.1); margin-bottom:20px; }
+.progress-bar { width:0%; height:100%; background:#fff; border-radius:15px; transition:width 0.2s ease; }
+#progressText { font-size:1.2rem; margin-bottom:10px; color:#fff; text-shadow:0 0 10px #00d4ff; }
+#loadingMessage { font-size:1rem; color:#cceeff; text-shadow:0 0 6px #00aaff; }
+#loadingScreen.hidden { opacity:0; pointer-events:none; }
+.upload-btn { position:fixed; top:20px; right:20px; z-index:2; padding:12px 22px; border-radius:12px; background:rgba(255,255,255,0.1); backdrop-filter:blur(15px); color:#fff; font-size:14px; cursor:pointer; border:1px solid rgba(255,255,255,0.2); box-shadow:inset 0 0 5px rgba(255,255,255,0.1); transition:all 0.3s ease; }
+.upload-btn:hover { background:rgba(255,255,255,0.2); transform:scale(1.05); }
+.info-container { position:relative; z-index:2; display:flex; justify-content:center; gap:30px; margin:40px auto 40px auto; flex-wrap:wrap; }
+.info-panel { width:220px; min-height:120px; background:rgba(255,255,255,0.05); backdrop-filter:blur(15px); border-radius:18px; padding:20px; border:1px solid rgba(255,255,255,0.2); box-shadow:inset 0 1px 5px rgba(255,255,255,0.1); text-align:center; transition:all 0.3s ease; }
+.info-panel:hover { background:rgba(255,255,255,0.15); transform:scale(1.05); }
+.file-carousel { position:relative; z-index:2; display:flex; gap:25px; padding:20px 40px 40px 40px; overflow-x:auto; scroll-behavior:smooth; height:240px; margin-bottom:40px; }
+.file-card { flex:0 0 140px; height:190px; background:rgba(255,255,255,0.05); backdrop-filter:blur(15px); border-radius:15px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:14px; text-align:center; cursor:pointer; color:#fff; border:1px solid rgba(255,255,255,0.15); box-shadow:inset 0 1px 5px rgba(255,255,255,0.1); transition:all 0.3s ease; }
+.file-card:hover { background:rgba(255,255,255,0.15); transform:scale(1.05); }
+.file-icon { font-size:48px; margin-bottom:8px; }
+.file-name { font-size:12px; word-break:break-word; padding:0 5px; color:#fff; }
+.file-owner { font-size:10px; color:#ddd; margin-top:3px; }
+.modal-bg { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:20; }
+.modal { background:rgba(255,255,255,0.05); backdrop-filter:blur(20px); padding:25px 35px; border-radius:15px; color:#fff; display:flex; flex-direction:column; gap:15px; min-width:300px; border:1px solid rgba(255,255,255,0.2); box-shadow:inset 0 1px 5px rgba(255,255,255,0.1); }
+.modal input { padding:8px 10px; border-radius:8px; border:none; outline:none; font-size:14px; background:rgba(255,255,255,0.1); color:#fff; }
+.modal button { padding:10px; border-radius:10px; border:none; cursor:pointer; background:rgba(255,255,255,0.1); color:#fff; font-weight:bold; transition:all 0.3s ease; }
+.modal button:hover { background:rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div id="loadingLogo">ENGINE6.0</div>
+  <div id="progressText">0%</div>
+  <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+  <div id="loadingMessage">Initializing Vault...</div>
+</div>
+
+<label class="upload-btn" id="addFileBtn">Add File</label>
+
+<div class="info-container">
+  <div class="info-panel"><h3>Performance</h3><p>Engine6.0 runs at optimized 3.2GHz multi-threaded cycles.</p></div>
+  <div class="info-panel"><h3>Security</h3><p>Encrypted storage system.</p></div>
+  <div class="info-panel"><h3>We use Gofile</h3><p>Tutorial in Discord</p></div>
+</div>
+
+<div class="file-carousel" id="carousel"></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3>File Information</h3>
+    <input type="text" id="fileNameInput" placeholder="File Name">
+    <input type="text" id="ownerInput" placeholder="Owner Name">
+    <input type="text" id="fileLinkInput" placeholder="Gofile Link">
+    <button id="saveFileBtn">Save File</button>
+  </div>
+</div>
+
+<script>
+// Loading animation
+const loadingScreen = document.getElementById("loadingScreen");
+const progressBar = document.getElementById("progressBar");
+const progressText = document.getElementById("progressText");
+const loadingMessage = document.getElementById("loadingMessage");
+let progress = 0;
+const messages = ["Initializing Vault...","Loading Modules...","Decrypting Files...","Almost Ready..."];
+
+function updateLoading(){
+  progress += Math.random()*2 + 1;
+  if(progress > 100) progress = 100;
+  progressBar.style.width = progress + "%";
+  progressText.textContent = Math.floor(progress) + "%";
+  loadingMessage.textContent = messages[Math.floor(progress/25)] || messages[3];
+  if(progress < 100) requestAnimationFrame(updateLoading);
+  else setTimeout(()=> loadingScreen.classList.add("hidden"), 500);
+}
+updateLoading();
+
+// Snow Effect
+const canvas = document.createElement("canvas");
+canvas.id = "snow";
+document.body.appendChild(canvas);
+const ctx = canvas.getContext("2d");
+let w = canvas.width = window.innerWidth;
+let h = canvas.height = window.innerHeight;
+const snowflakes = Array.from({length:200}, ()=>({x:Math.random()*w, y:Math.random()*h, r:Math.random()*2+1, dx:(Math.random()-0.5)*0.5, dy:Math.random()*1+1}));
+
+function drawSnow(){
+  ctx.clearRect(0,0,w,h);
+  snowflakes.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle="rgba(255,255,255,0.8)"; ctx.fill();
+    p.x+=p.dx; p.y+=p.dy;
+    if(p.x > w) p.x = 0;
+    if(p.x < 0) p.x = w;
+    if(p.y > h) p.y = 0;
+  });
+  requestAnimationFrame(drawSnow);
+}
+
+window.addEventListener("resize", ()=>{ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
+
+drawSnow();
+
+// FILE STORAGE (PUBLIC VIEW)
+// Everyone can see all files stored in localStorage on THIS DEVICE.
+// Not globally shared — requires database for real public sharing.
+
+const carousel = document.getElementById("carousel");
+const modalBg = document.getElementById("modalBg");
+const addFileBtn = document.getElementById("addFileBtn");
+const saveFileBtn = document.getElementById("saveFileBtn");
+const fileNameInput = document.getElementById("fileNameInput");
+const ownerInput = document.getElementById("ownerInput");
+const fileLinkInput = document.getElementById("fileLinkInput");
+
+let files = JSON.parse(localStorage.getItem("vaultFiles") || "[]");
+
+function renderCarousel(){
+  carousel.innerHTML = "";
+  files.forEach(meta=>{
+    const card = document.createElement("div");
+    card.className = "file-card";
+
+    card.innerHTML = `
+      <div class="file-icon">📁</div>
+      <div class="file-name">${meta.name}</div>
+      <div class="file-owner">Owner: ${meta.owner}</div>
+    `;
+
+    card.addEventListener("click", ()=>{
+      window.open(meta.link, "_blank");
+    });
+
+    carousel.appendChild(card);
+  });
+}
+renderCarousel();
+
+addFileBtn.addEventListener("click", ()=>{
+  modalBg.style.display = "flex";
+});
+
+saveFileBtn.addEventListener("click", ()=>{
+  const name = fileNameInput.value.trim();
+  const owner = ownerInput.value.trim() || "Unknown";
+  const link = fileLinkInput.value.trim();
+  if(!name || !link){ alert("Provide file name and Gofile link."); return; }
+
+  files.push({ name, owner, link });
+  localStorage.setItem("vaultFiles", JSON.stringify(files));
+  renderCarousel();
+  modalBg.style.display = "none";
+  fileNameInput.value = ownerInput.value = fileLinkInput.value = "";
+});
+</script>
+</body>
+</html>
